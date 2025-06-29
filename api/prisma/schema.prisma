@@ -1,0 +1,330 @@
+ // agtech-saas/api/prisma/schema.prisma
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// Kullanıcı Modeli
+model User {
+  id              String   @id @default(cuid())
+  email           String   @unique
+  phone           String   @unique
+  password        String
+  firstName       String
+  lastName        String
+  role            UserRole @default(FARMER)
+  isActive        Boolean  @default(true)
+  emailVerified   Boolean  @default(false)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  
+  // Relations
+  farms           Farm[]
+  notifications   Notification[]
+  activities      Activity[]
+}
+
+enum UserRole {
+  FARMER
+  COOPERATIVE_ADMIN
+  EXPERT
+  ADMIN
+}
+
+// Çiftlik Modeli
+model Farm {
+  id              String   @id @default(cuid())
+  name            String
+  location        Json     // {lat, lng, address, city, district}
+  totalArea       Float    // Dekar
+  userId          String
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  
+  // Relations
+  user            User     @relation(fields: [userId], references: [id])
+  fields          Field[]
+  expenses        Expense[]
+  revenues        Revenue[]
+  inventories     Inventory[]
+}
+
+// Tarla/Arazi Modeli
+model Field {
+  id              String   @id @default(cuid())
+  name            String
+  area            Float    // Dekar
+  soilType        String
+  polygon         Json     // GeoJSON coordinates
+  farmId          String
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  
+  // Relations
+  farm            Farm     @relation(fields: [farmId], references: [id])
+  crops           Crop[]
+  iotDevices      IotDevice[]
+  irrigations     Irrigation[]
+}
+
+// Mahsul/Ürün Modeli
+model Crop {
+  id              String   @id @default(cuid())
+  name            String
+  variety         String   // Çeşit
+  plantingDate    DateTime
+  expectedHarvest DateTime
+  actualHarvest   DateTime?
+  expectedYield   Float    // kg/dekar
+  actualYield     Float?   // kg/dekar
+  status          CropStatus @default(PLANTED)
+  fieldId         String
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  
+  // Relations
+  field           Field    @relation(fields: [fieldId], references: [id])
+  activities      Activity[]
+  diseaseReports  DiseaseReport[]
+}
+
+enum CropStatus {
+  PLANNED
+  PLANTED
+  GROWING
+  HARVESTED
+  FAILED
+}
+
+// Gider Modeli
+model Expense {
+  id              String   @id @default(cuid())
+  category        ExpenseCategory
+  amount          Float
+  description     String
+  date            DateTime
+  farmId          String
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  
+  // Relations
+  farm            Farm     @relation(fields: [farmId], references: [id])
+}
+
+enum ExpenseCategory {
+  SEED           // Tohum
+  FERTILIZER     // Gübre
+  PESTICIDE      // İlaç
+  FUEL           // Yakıt
+  LABOR          // İşçilik
+  MACHINERY      // Makine
+  IRRIGATION     // Sulama
+  OTHER          // Diğer
+}
+
+// Gelir Modeli
+model Revenue {
+  id              String   @id @default(cuid())
+  source          RevenueSource
+  amount          Float
+  quantity        Float    // kg, ton, etc.
+  unitPrice       Float
+  buyer           String?
+  date            DateTime
+  farmId          String
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  
+  // Relations
+  farm            Farm     @relation(fields: [farmId], references: [id])
+}
+
+enum RevenueSource {
+  CROP_SALE      // Ürün satışı
+  SUBSIDY        // Devlet desteği
+  OTHER          // Diğer
+}
+
+// IoT Cihaz Modeli
+model IotDevice {
+  id              String   @id @default(cuid())
+  deviceId        String   @unique
+  type            DeviceType
+  name            String
+  status          DeviceStatus @default(ACTIVE)
+  fieldId         String
+  lastReading     DateTime?
+  batteryLevel    Float?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  
+  // Relations
+  field           Field    @relation(fields: [fieldId], references: [id])
+  readings        SensorReading[]
+}
+
+enum DeviceType {
+  SOIL_MOISTURE   // Toprak nem sensörü
+  WEATHER_STATION // Hava istasyonu
+  WATER_METER     // Su sayacı
+  CAMERA          // Kamera
+}
+
+enum DeviceStatus {
+  ACTIVE
+  INACTIVE
+  MAINTENANCE
+}
+
+// Sensör Okuma Modeli
+model SensorReading {
+  id              String   @id @default(cuid())
+  deviceId        String
+  type            String   // temperature, humidity, soilMoisture, etc.
+  value           Float
+  unit            String
+  timestamp       DateTime @default(now())
+  
+  // Relations
+  device          IotDevice @relation(fields: [deviceId], references: [id])
+  
+  @@index([deviceId, timestamp])
+}
+
+// Hastalık Raporu Modeli
+model DiseaseReport {
+  id              String   @id @default(cuid())
+  cropId          String
+  diseaseName     String
+  severity        Severity
+  detectedBy      DetectionMethod
+  images          String[] // Array of image URLs
+  aiConfidence    Float?   // AI güven skoru (0-1)
+  treatment       String?
+  status          ReportStatus @default(PENDING)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  
+  // Relations
+  crop            Crop     @relation(fields: [cropId], references: [id])
+}
+
+enum Severity {
+  LOW
+  MEDIUM
+  HIGH
+  CRITICAL
+}
+
+enum DetectionMethod {
+  MANUAL
+  AI_DETECTION
+  EXPERT_REVIEW
+}
+
+enum ReportStatus {
+  PENDING
+  CONFIRMED
+  TREATING
+  RESOLVED
+}
+
+// Aktivite/İşlem Modeli
+model Activity {
+  id              String   @id @default(cuid())
+  type            ActivityType
+  description     String
+  date            DateTime
+  userId          String
+  cropId          String?
+  metadata        Json?    // Ek bilgiler
+  createdAt       DateTime @default(now())
+  
+  // Relations
+  user            User     @relation(fields: [userId], references: [id])
+  crop            Crop?    @relation(fields: [cropId], references: [id])
+}
+
+enum ActivityType {
+  PLANTING       // Ekim
+  FERTILIZING    // Gübreleme
+  SPRAYING       // İlaçlama
+  IRRIGATING     // Sulama
+  HARVESTING     // Hasat
+  OTHER          // Diğer
+}
+
+// Sulama Modeli
+model Irrigation {
+  id              String   @id @default(cuid())
+  fieldId         String
+  method          IrrigationMethod
+  duration        Int      // Dakika
+  waterAmount     Float?   // Litre
+  date            DateTime
+  createdAt       DateTime @default(now())
+  
+  // Relations
+  field           Field    @relation(fields: [fieldId], references: [id])
+}
+
+enum IrrigationMethod {
+  DRIP           // Damla sulama
+  SPRINKLER      // Yağmurlama
+  SURFACE        // Salma sulama
+  CENTER_PIVOT   // Pivot
+}
+
+// Envanter Modeli
+model Inventory {
+  id              String   @id @default(cuid())
+  farmId          String
+  itemType        InventoryType
+  name            String
+  quantity        Float
+  unit            String
+  minStock        Float?
+  purchaseDate    DateTime?
+  expiryDate      DateTime?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  
+  // Relations
+  farm            Farm     @relation(fields: [farmId], references: [id])
+}
+
+enum InventoryType {
+  SEED
+  FERTILIZER
+  PESTICIDE
+  EQUIPMENT
+  OTHER
+}
+
+// Bildirim Modeli
+model Notification {
+  id              String   @id @default(cuid())
+  userId          String
+  title           String
+  message         String
+  type            NotificationType
+  isRead          Boolean  @default(false)
+  metadata        Json?
+  createdAt       DateTime @default(now())
+  
+  // Relations
+  user            User     @relation(fields: [userId], references: [id])
+}
+
+enum NotificationType {
+  WEATHER_ALERT
+  PRICE_UPDATE
+  DISEASE_DETECTION
+  TASK_REMINDER
+  SYSTEM
+}

@@ -1,0 +1,55 @@
+ # agtech-saas/ai-service/requirements.txt
+
+# FastAPI Framework
+fastapi==0.108.0
+uvicorn[standard]==0.25.0
+python-multipart==0.0.6
+
+# Database
+sqlalchemy==2.0.23
+asyncpg==0.29.0
+redis==5.0.1
+
+# Machine Learning & AI
+tensorflow==2.15.0
+scikit-learn==1.3.2
+pandas==2.1.4
+numpy==1.26.2
+opencv-python==4.8.1.78
+pillow==10.1.0
+
+# NLP - Türkçe Dil İşleme
+transformers==4.36.2
+torch==2.1.2
+nltk==3.8.1
+
+# Data Processing
+scipy==1.11.4
+matplotlib==3.8.2
+seaborn==0.13.0
+
+# API & HTTP
+httpx==0.26.0
+aiohttp==3.9.1
+
+# Utilities
+python-dotenv==1.0.0
+pydantic==2.5.3
+pydantic-settings==2.1.0
+
+# Task Queue
+celery==5.3.4
+kombu==5.3.4
+
+# Weather Data
+pyowm==3.3.0
+
+# Image Processing for Disease Detection
+albumentations==1.3.1
+
+# Time Series Analysis
+statsmodels==0.14.1
+prophet==1.1.5
+
+# Logging
+loguru==0.7.2
